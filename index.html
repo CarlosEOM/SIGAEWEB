@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIGAE Saúde</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,"Segoe UI",sans-serif;background:#eef3f8;color:#1b2a3a;display:flex;min-height:100vh}
+nav{width:210px;background:#12263f;color:#cfe0f3;padding:18px 0;flex-shrink:0}
+nav h1{font-size:18px;margin:0 18px 18px;color:#fff}
+nav a{display:block;padding:11px 18px;cursor:pointer;border-left:4px solid transparent}
+nav a.on{background:#1f3d63;color:#fff;border-left-color:#4a9be8}
+main{flex:1;padding:22px;min-width:0}
+h2{margin-top:0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.card,.box{background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px #0001;margin-bottom:14px}
+.cards .card{margin:0}.card b{display:block;font-size:28px}.card span{font-size:13px;color:#5a6b7d}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #e3eaf2}
+th{font-size:12px;text-transform:uppercase;color:#5a6b7d}
+button{background:#2f7fd1;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+button.sec{background:#e3eaf2;color:#1b2a3a}button.red{background:#c0392b}
+input,select{padding:8px;border:1px solid #c8d4e0;border-radius:8px}
+.b{padding:2px 9px;border-radius:10px;font-size:12px}
+#msg{margin-bottom:12px;padding:10px 14px;border-radius:8px;display:none}
+#msg.ok{display:block;background:#d9f2e3}#msg.er{display:block;background:#fadbd8}
+@media(max-width:700px){body{flex-direction:column}nav{width:100%}}
+</style>
+</head>
+<body>
+<nav>
+  <h1>SIGAE Saúde</h1>
+  <a data-t="geral" class="on">Visão geral</a>
+  <a data-t="pacientes">Pacientes / Triagem</a>
+  <a data-t="medicos">Médicos clínicos</a>
+  <a data-t="atend">Atendimentos</a>
+  <a data-t="hist">Histórico</a>
+</nav>
+<main>
+<div id="msg"></div>
+
+<section id="geral">
+  <h2>Visão geral</h2>
+  <div class="cards" id="cards"></div>
+  <div class="box">
+    <button onclick="chamar(1)">Chamar próximo</button>
+    <input id="qtd" type="number" min="1" max="50" value="3" style="width:70px">
+    <button onclick="chamar(+$('#qtd').value)">Chamar vários</button>
+    <button class="sec" onclick="acao('POST','demo')">Carregar dados de demonstração</button>
+  </div>
+  <div class="box"><h3>Ordem de chamada (próximos 10)</h3><table id="ordem"></table></div>
+  <div class="box"><small id="alturas"></small></div>
+</section>
+
+<section id="pacientes" hidden>
+  <h2>Pacientes e triagem</h2>
+  <form class="box" onsubmit="cadPac(event)">
+    <input id="pn" placeholder="Nome (fictício)" required>
+    <select id="pr">
+      <option value="1">1 — Emergência</option><option value="2">2 — Muito urgente</option>
+      <option value="3" selected>3 — Urgente</option><option value="4">4 — Pouco urgente</option>
+      <option value="5">5 — Não urgente</option>
+    </select>
+    <input id="pc" type="datetime-local" step="1" title="Chegada (opcional; vazio = agora)">
+    <button>Cadastrar</button>
+  </form>
+  <div class="box">
+    <input id="bid" type="number" placeholder="Buscar por ID"> <button onclick="buscar()">Buscar</button>
+    <span id="bres"></span>
+  </div>
+  <div class="box"><table id="tpac"></table></div>
+</section>
+
+<section id="medicos" hidden>
+  <h2>Médicos clínicos</h2>
+  <form class="box" onsubmit="cadMed(event)">
+    <input id="mn" placeholder="Nome completo (fictício)" required>
+    <input id="mc" placeholder="Registro profissional (fictício)" required>
+    <button>Cadastrar médico</button>
+  </form>
+  <div class="box"><table id="tmed"></table></div>
+</section>
+
+<section id="atend" hidden>
+  <h2>Atendimentos</h2>
+  <div class="box"><table id="tat"></table></div>
+</section>
+
+<section id="hist" hidden>
+  <h2>Histórico e consultas</h2>
+  <div class="box"><h3>Concluídos por médico</h3><table id="hmed"></table></div>
+  <div class="box"><h3>Atendimentos concluídos</h3><table id="hcon"></table></div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const COR = {"Aguardando":"#fdebc8","Em atendimento":"#cfe3fa","Concluído":"#d9f2e3","Cancelado":"#f3d6d3",
+             "Disponível":"#d9f2e3","Indisponível":"#e3e3e3","Em andamento":"#cfe3fa","Desfeito":"#e3e3e3"};
+const tag = s => `<span class="b" style="background:${COR[s] || "#eee"}">${esc(s)}</span>`;
+const th = (...c) => "<tr>" + c.map(x => "<th>" + x + "</th>").join("") + "</tr>";
+const td = (...c) => "<tr>" + c.map(x => "<td>" + x + "</td>").join("") + "</tr>";
+
+function msg(t, ok){ const m = $("#msg"); m.textContent = t; m.className = ok ? "ok" : "er"; }
+
+async function api(metodo, url, corpo){
+  const r = await fetch("/api/" + url, {method: metodo, headers: {"Content-Type": "application/json"},
+                                        body: corpo ? JSON.stringify(corpo) : undefined});
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.erro);
+  return j;
+}
+async function acao(metodo, url, corpo, confirmacao){
+  if(confirmacao && !confirm(confirmacao)) return;
+  try { const j = await api(metodo, url, corpo); msg(j.motivo || "Operação realizada.", true); await render(); }
+  catch(e){ msg(e.message, false); }
+}
+const chamar = n => acao("POST", "chamar", {quantidade: n});
+
+async function cadPac(e){
+  e.preventDefault();
+  await acao("POST", "pacientes", {nome: $("#pn").value, risco: $("#pr").value, chegada: $("#pc").value});
+  $("#pn").value = ""; $("#pc").value = "";
+}
+async function cadMed(e){
+  e.preventDefault();
+  await acao("POST", "medicos", {nome: $("#mn").value, crm: $("#mc").value});
+  $("#mn").value = ""; $("#mc").value = "";
+}
+async function buscar(){
+  try { const p = await api("GET", "pacientes/" + $("#bid").value);
+    $("#bres").textContent = ` #${p.id} ${p.nome} — risco ${p.risco} (${p.nivel}) — ${p.situacao} — chegada ${p.chegada}`; }
+  catch(e){ $("#bres").textContent = " " + e.message; }
+}
+
+async function render(){
+  const [p, pac, med, at, h] = await Promise.all([api("GET","painel"), api("GET","pacientes"),
+    api("GET","medicos"), api("GET","atendimentos"), api("GET","historico")]);
+  const card = (v, t) => `<div class="card"><b>${v}</b><span>${t}</span></div>`;
+  $("#cards").innerHTML = card(p.aguardando,"Aguardando") + card(p.em_atendimento,"Em atendimento") +
+    card(p.concluidos,"Concluídos") + card(p.cancelados,"Cancelados") +
+    card(p.medicos_disponiveis,"Médicos disponíveis") + card(p.medicos_ocupados,"Médicos ocupados") +
+    card(p.medicos_indisponiveis,"Médicos indisponíveis");
+  $("#ordem").innerHTML = th("#","ID","Paciente","Risco","Chegada") +
+    p.ordem.map((x, i) => td(i + 1, x.id, esc(x.nome), x.risco + " — " + esc(x.nivel), x.chegada)).join("");
+  $("#alturas").textContent = `Altura das AVL — pacientes: ${p.altura_pacientes}, chegada: ${p.altura_chegada}, médicos: ${p.altura_medicos}`;
+
+  $("#tpac").innerHTML = th("ID","Paciente","Chegada","Risco","Situação","Ações") + pac.map(x => td(x.id, esc(x.nome),
+    x.chegada, x.risco + " — " + esc(x.nivel), tag(x.situacao),
+    (x.situacao === "Aguardando"
+      ? `<select onchange="acao('POST','pacientes/${x.id}/reclassificar',{risco:+this.value})">` +
+        [1,2,3,4,5].map(n => `<option ${n == x.risco ? "selected" : ""}>${n}</option>`).join("") + "</select> " : "") +
+    (x.situacao === "Aguardando" || x.situacao === "Em atendimento"
+      ? `<button class="red" onclick="acao('POST','pacientes/${x.id}/cancelar',null,'Cancelar o paciente ${x.id}?')">Cancelar</button>` : ""))).join("");
+
+  $("#tmed").innerHTML = th("ID","Médico / Registro","Consultas concluídas","Situação","Última atribuição","Ação") +
+    med.map(x => td(x.id, esc(x.nome) + "<br><small>" + esc(x.crm) + "</small>", x.concluidas, tag(x.situacao),
+      x.ultima_hora || "—", x.situacao === "Em atendimento" ? "" :
+      `<button class="sec" onclick="acao('POST','medicos/${x.id}/disponibilidade',{situacao:'${x.situacao === "Disponível" ? "Indisponível" : "Disponível"}'})">
+       Tornar ${x.situacao === "Disponível" ? "indisponível" : "disponível"}</button>`)).join("");
+
+  $("#tat").innerHTML = th("ID","Paciente","Médico","Início","Fim","Situação","Ações") + at.map(x => td(x.id,
+    x.paciente_id + " " + esc(x.paciente), x.medico_id + " " + esc(x.medico), x.inicio, x.fim || "—", tag(x.situacao),
+    x.situacao === "Em andamento"
+      ? `<button onclick="acao('POST','atendimentos/${x.id}/concluir')">Concluir</button>
+         <button class="sec" onclick="acao('POST','atendimentos/${x.id}/desfazer',null,'Desfazer a chamada? O paciente volta à fila.')">Desfazer chamada</button>
+         <button class="red" onclick="acao('POST','pacientes/${x.paciente_id}/cancelar',null,'Cancelar o paciente?')">Cancelar</button>` : "")).join("");
+
+  $("#hmed").innerHTML = th("ID","Médico","Concluídas") + h.por_medico.map(x => td(x.id, esc(x.nome), x.concluidas)).join("");
+  $("#hcon").innerHTML = th("Atend.","Paciente","Médico","Início","Fim") +
+    h.concluidos.map(x => td(x.id, esc(x.paciente), esc(x.medico), x.inicio, x.fim)).join("");
+}
+
+document.querySelectorAll("nav a").forEach(a => a.onclick = () => {
+  document.querySelectorAll("nav a").forEach(x => x.classList.toggle("on", x === a));
+  document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== a.dataset.t);
+});
+render().catch(e => msg(e.message, false));
+</script>
+</body>
+</html>
