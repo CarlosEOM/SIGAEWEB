@@ -1,0 +1,47 @@
+Teste 1 - Pacientes fora de ordem cronológica, prioridades repetidas.
+  ok - ordem cronológica = ['E', 'C', 'A', 'B', 'D']
+  ok - ordem efetiva de chamada = ['B', 'D', 'C', 'A', 'E'] (risco > chegada; empate: chegada, depois ID)
+  ok - invariantes consistentes
+
+Teste 2 - Três médicos com o mesmo total: todos os desempates.
+  ok - ninguém recebeu antes -> menor ID primeiro
+  ok - mesmo total (1 cada) -> quem está há mais tempo sem receber paciente, não quem liberou antes
+  ok - invariantes consistentes
+
+Teste 3 - Chamadas simultâneas, indisponíveis, menor carga.
+  ok - só M1 atendeu (2 consultas)
+  ok - menos carregados primeiro; M1 (2 consultas) por último
+  ok - médico em atendimento não pode ficar indisponível
+  ok - invariantes consistentes
+  ok - 30 consultas -> 10 por médico; ocupado nunca escalado de novo
+  ok - invariantes consistentes
+
+Teste 4 - Sem médico disponível a fila não perde ninguém
+  ok - chamada sem médico é recusada
+  ok - paciente continua aguardando na fila
+  ok - médico indisponível também não é escalado
+  ok - voltando a ficar disponível, o paciente é chamado
+
+Teste 5 - Cancelamento, desfazimento e reclassificação.
+  ok - P1 (risco 1) é chamado com M1
+  ok - desfazer: paciente volta à fila, médico livre, contador intacto
+  ok - mantém prioridade e o 'tempo sem receber' do médico
+  ok - cancelar em atendimento não conta como consulta e libera o médico
+  ok - cancelar duas vezes é recusado
+  ok - reclassificado (5->1, chegada mais antiga) passa à frente de P2
+  ok - sem duplicação nem registros órfãos
+  ok - invariantes consistentes
+
+Teste 6 - 3000 operações aleatórias (reprodutíveis), invariantes após cada uma
+  ok - 407 pacientes, nenhum duplicado ou órfão
+  ok - consultas concluídas batem com o histórico
+  situação final: 183 aguardando, 4 em atendimento
+
+Teste 7 - Casos adversos para as estruturas escolhidas
+  ok - AVL com 20000 chaves ordenadas: altura 15 (BST simples teria 20000); 0.08s
+  ok - buscas corretas e árvore válida
+  ok - remoção de metade das chaves mantém balanceamento
+  ok - 5000 pacientes + 5000 reclassificações: estruturas consistentes
+  ok - 5000 chamadas em ordem não decrescente de (risco, chegada, ID); 0.15s
+
+TODOS OS TESTES PASSARAM
